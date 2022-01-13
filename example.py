@@ -7,7 +7,7 @@ import statsmodels.tsa.api as tsa
 
 if __name__ == '__main__':
     
-    time_series_data = util.load_time_series_from_csv('example.csv', 'period_start')
+    time_series_data = util.load_time_series_from_csv('example.csv', 'date')
     
     #Sample Experiment #1 - Naive Model
     #Define the parameters for teh test run

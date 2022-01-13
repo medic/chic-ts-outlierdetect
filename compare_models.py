@@ -26,7 +26,7 @@ def compare_ts_univariate_outlier(config_file):
     #load data file
     DATA_FILE = experiment_config['data_file']
     
-    time_series_data = util.load_time_series_from_csv('example.csv', 'period_start')
+    time_series_data = util.load_time_series_from_csv('example.csv', 'date')
     #Record write_file
     write_output = experiment_config['write_output']
     if write_output == None:

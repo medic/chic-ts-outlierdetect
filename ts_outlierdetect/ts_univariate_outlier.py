@@ -69,8 +69,8 @@ class TimeSeriesUnivariateModel(object):
         self.res_stats['std'] = np.std(self._data['res'])
         self.res_stats['upperci'] = self.res_stats['mu'] + 1.96*self.res_stats['std']
         self.res_stats['lowerci'] = self.res_stats['mu'] - 1.96*self.res_stats['std']
-        self.res_stats['MAE'] = np.mean(self._data['res'])
-        self.res_stats['MAPE'] = np.mean(self._data['res']/self._data['y'])
+        self.res_stats['MAE'] = np.mean(np.abs(self._data['res']))
+        self.res_stats['MAPE'] = np.mean(np.abs(self._data['res'])/self._data['y'])
         self.res_stats['RMSE'] = np.sqrt(np.mean(np.square(self._data['res'])))
         if outlier_kwargs != None:
             outliers_idx = self.find_historical_outliers_idx(**outlier_kwargs)
