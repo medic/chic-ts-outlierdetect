@@ -1,0 +1,31 @@
+data_file: "example.csv"
+write_output: True
+experiments:
+    - name: "example_naive"
+      model_class: TimeSeriesNaiveModel
+      model_kwargs:
+      fit_kwargs:
+    - name: "example_simpleexponentialsmoothing"
+      model_class: StatsModelTSAModel
+      model_kwargs:
+          tsa_model: SimpleExpSmoothing
+          tsa_kwargs:
+              initialization_method : estimated
+      fit_kwargs:
+          tsa_fit_kwargs:
+              smoothing_level : 0.5
+    - name: "example_simpleexponentialsmoothing_optimized"
+      model_class: StatsModelTSAModel
+      model_kwargs:
+          tsa_model: SimpleExpSmoothing
+          tsa_kwargs:
+              initialization_method : estimated
+      fit_kwargs:
+          tsa_fit_kwargs:
+              optimized : True
+    - name: "example_rollingaverage"
+      model_class: TimeSeriesUnivariateRollingWindow
+      model_kwargs:
+      fit_kwargs:
+          pandas_rolling_kwargs:
+              window : 3
