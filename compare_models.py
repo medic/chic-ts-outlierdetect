@@ -26,7 +26,7 @@ def compare_ts_univariate_outlier(config_file):
     #load data file
     DATA_FILE = experiment_config['data_file']
     
-    time_series_data = util.load_time_series_from_csv('example.csv', 'date')
+    time_series_data = util.load_time_series_from_csv(DATA_FILE)
     #Record write_file
     write_output = experiment_config['write_output']
     if write_output == None:
@@ -43,9 +43,9 @@ def compare_ts_univariate_outlier(config_file):
         model_kwargs = experiment['model_kwargs']
         fit_kwargs = experiment['fit_kwargs']
         if model_kwargs != None:
-            model = getattr(ts_univariate_outlier, model_class)(output_dir,write_output,**model_kwargs)
+            model = getattr(ts_univariate_outlier, model_class)(output_dir=output_dir,write_output=write_output,**model_kwargs)
         else:
-            model = getattr(ts_univariate_outlier, model_class)(output_dir,write_output)
+            model = getattr(ts_univariate_outlier, model_class)(output_dir=output_dir,write_output=write_output)
         if fit_kwargs != None:
             model.fit(time_series_data, **fit_kwargs)
         else:

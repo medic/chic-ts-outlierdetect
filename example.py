@@ -7,13 +7,13 @@ import statsmodels.tsa.api as tsa
 
 if __name__ == '__main__':
     
-    time_series_data = util.load_time_series_from_csv('example.csv', 'date')
+    time_series_data = util.load_time_series_from_csv('example.csv')
     
     #Sample Experiment #1 - Naive Model
     #Define the parameters for teh test run
     output_dir = 'example_naive'
     #Instantiate the model class
-    model = ts_univariate_outlier.TimeSeriesNaiveModel(output_dir)
+    model = ts_univariate_outlier.TimeSeriesNaiveModel(output_dir=output_dir)
     #Fit the model to the time series
     model.fit(time_series_data)
     #Plot the results

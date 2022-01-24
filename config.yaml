@@ -4,28 +4,22 @@ experiments:
     - name: "example_naive"
       model_class: TimeSeriesNaiveModel
       model_kwargs:
+          window_alert_n : 12
       fit_kwargs:
-    - name: "example_simpleexponentialsmoothing"
+    - name: "example_exponentialsmoothing"
       model_class: StatsModelTSAModel
       model_kwargs:
+          window_alert_n : 12
           tsa_model: SimpleExpSmoothing
           tsa_kwargs:
               initialization_method : estimated
       fit_kwargs:
           tsa_fit_kwargs:
               smoothing_level : 0.5
-    - name: "example_simpleexponentialsmoothing_optimized"
-      model_class: StatsModelTSAModel
-      model_kwargs:
-          tsa_model: SimpleExpSmoothing
-          tsa_kwargs:
-              initialization_method : estimated
-      fit_kwargs:
-          tsa_fit_kwargs:
-              optimized : True
     - name: "example_rollingaverage"
       model_class: TimeSeriesUnivariateRollingWindow
       model_kwargs:
+          window_alert_n : 12
       fit_kwargs:
           pandas_rolling_kwargs:
-              window : 3
+              window : 6

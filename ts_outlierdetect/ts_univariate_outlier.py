@@ -15,12 +15,15 @@ class TimeSeriesUnivariateModel(object):
     Time series univariate model interface/base class
     """
     
-    def __init__(self, output_dir=None, write_output=True):
+    def __init__(self, window_alert_n=None, output_dir=None, write_output=True):
         """
         Class constructor
         
         Parameters
         ----------
+        window_alert_n: int, default None
+            Number of data points to use for training stastical profiling alert model.
+            If None, uses entire signal.
         output_dir: str
             Directory for output data and plots in 'out' folder
         write_output: bool, default True
@@ -30,10 +33,12 @@ class TimeSeriesUnivariateModel(object):
         -------
         None
         """
-        #Initialize a _data dataframe containing model's data
-        self._data = pd.DataFrame(columns=['y', 'y_hat', 'res'])
+        #Initialize a data dataframe containing model's data
+        self.data = pd.DataFrame(columns=['y', 'y_hat', 'res'])
         #Initialize a res_stats dict for model error stats
         self.res_stats = {}
+        #Define rolling window size for anamoly/alert detection
+        self._window_alert_n = window_alert_n
         #Define output dir and writing capabilities
         self._write_output = write_output
         if self._write_output:
@@ -61,26 +66,24 @@ class TimeSeriesUnivariateModel(object):
         """
         logging.info('Performing residual analysis and outlier detection.')
         #Calculate residual signal
-        self._data['res'] = self._data['y'] - self._data['y_hat']
+        self.data['res'] = self.data['y'] - self.data['y_hat']
         #Calculate the MAPE of the residual
-        self._data['percent_error'] = self._data['res']/self._data['y']
+        self.data['percent_error'] = self.data['res']/self.data['y']
         #Calcuate basic stats about residual
-        self.res_stats['mu'] = np.mean(self._data['res'])
-        self.res_stats['std'] = np.std(self._data['res'])
-        self.res_stats['upperci'] = self.res_stats['mu'] + 1.96*self.res_stats['std']
-        self.res_stats['lowerci'] = self.res_stats['mu'] - 1.96*self.res_stats['std']
-        self.res_stats['MAE'] = np.mean(np.abs(self._data['res']))
-        self.res_stats['MAPE'] = np.mean(np.abs(self._data['res'])/self._data['y'])
-        self.res_stats['RMSE'] = np.sqrt(np.mean(np.square(self._data['res'])))
+        self.res_stats['mu'] = np.mean(self.data['res'])
+        self.res_stats['std'] = np.std(self.data['res'])
+        self.res_stats['MAE'] = np.mean(np.abs(self.data['res']))
+        self.res_stats['MAPE'] = np.mean(np.abs(self.data['res'])/self.data['y'])
+        self.res_stats['RMSE'] = np.sqrt(np.mean(np.square(self.data['res'])))
         if outlier_kwargs != None:
-            outliers_idx = self.find_historical_outliers_idx(**outlier_kwargs)
+            self.find_historical_outliers_idx(**outlier_kwargs)
         else:
-            outliers_idx = self.find_historical_outliers_idx()
-        self._data['outlier'] = self._data.index.isin(outliers_idx)
+            self.find_historical_outliers_idx()
+        self.data['outlier'] = self.data.index.isin(self._outliers_index)
         #Save data to file
         if self._write_output:
             output_resanalysis_filepath = self._output_dir / 'residual_data.csv'
-            self._data.to_csv(output_resanalysis_filepath)
+            self.data.to_csv(output_resanalysis_filepath)
             output_resstats_filepath = self._output_dir / 'residual_stats.csv'
             pd.DataFrame.from_dict(self.res_stats, orient='index').to_csv(output_resstats_filepath, header=False)
             logging.info('Residual analysis and outlier detection results written to {} and {}'.format(output_resanalysis_filepath,output_resstats_filepath))
@@ -128,13 +131,13 @@ class TimeSeriesUnivariateModel(object):
         None
         """
         fig, ax = plt.subplots()
-        ax.plot(self._data.index, self._data['y'], color="black", label = 'y')
-        ax.plot(self._data.index, self._data['y_hat'], color="blue", label = 'y_hat')
+        ax.plot(self.data.index, self.data['y'], color="black", label = 'y')
+        ax.plot(self.data.index, self.data['y_hat'], color="blue", label = 'y_hat')
+        ax.figure.autofmt_xdate()
         ax.legend()
-        ax.fill_between(self._data['y_hat'].index, (self._data['y_hat'].values+self.res_stats['lowerci']), (self._data['y_hat'].values+self.res_stats['upperci']), color='b', alpha=.1)
-        if plot_outliers:
-            outliers_idx = self.find_historical_outliers_idx()
-            ax.scatter(outliers_idx.values, self._data.loc[outliers_idx]['y'].values, color="red", label = 'outliers')
+        ax.fill_between(self.data['y_hat'].index, (self.data['y_hat'].values+self.data['res_outlier_ub'].values), (self.data['y_hat'].values+self.data['res_outlier_lb'].values), color='b', alpha=.1)
+        if plot_outliers and self._outliers_index is not None:
+                ax.scatter(self._outliers_index.values, self.data.loc[self._outliers_index]['y'].values, color="red", label = 'outliers')
         #Save plot to file
         if self._write_output:
             if filename == None:
@@ -160,12 +163,12 @@ class TimeSeriesUnivariateModel(object):
         None
         """
         fig, ax = plt.subplots()
-        ax.plot(self._data.index, self._data['res'], color="black", label = 'residual')
+        ax.plot(self.data.index, self.data['res'], color="black", label = 'residual')
+        ax.figure.autofmt_xdate()
         ax.legend()
-        ax.fill_between(self._data['res'].index, self.res_stats['lowerci'], self.res_stats['upperci'], color='b', alpha=.1)
-        if plot_outliers:
-            outliers_idx = self.find_historical_outliers_idx()
-            ax.scatter(outliers_idx.values, self._data.loc[outliers_idx]['res'].values, color="red", label = 'outliers')
+        ax.fill_between(self.data['res'].index, self.data['res_outlier_lb'], self.data['res_outlier_ub'], color='b', alpha=.1)
+        if plot_outliers and self._outliers_index is not None:
+            ax.scatter(self._outliers_index.values, self.data.loc[self._outliers_index]['res'].values, color="red", label = 'outliers')
         #Save plot to file
         if self._write_output:
             if filename == None:
@@ -187,7 +190,7 @@ class TimeSeriesUnivariateModel(object):
         None
         """
         fig, ax = plt.subplots()
-        ax.hist(self._data['res'], color="blue", label = 'residual')
+        ax.hist(self.data['res'], color="blue", label = 'residual')
         ax.legend()
         #Save plot to file
         if self._write_output:
@@ -202,6 +205,8 @@ class TimeSeriesUnivariateModel(object):
         
         Parameters
         ----------
+        col: str, default 'res'
+            Column name for variable to plot autocorrelation
         filename: str or Path, default None 
             Filename for output plot. If None, plot is saved as ../out/plots/autocorr.png.
             
@@ -210,7 +215,7 @@ class TimeSeriesUnivariateModel(object):
         None
         """
         fig, ax = plt.subplots()
-        pd.plotting.autocorrelation_plot(self._data[col].dropna(), ax=ax)
+        pd.plotting.autocorrelation_plot(self.data[col].dropna(), ax=ax)
         ax.set_title('Autocorrelation Plot')
         if self._write_output:
             if filename == None:
@@ -218,7 +223,7 @@ class TimeSeriesUnivariateModel(object):
             plt.savefig(filename)
         return None
                 
-    def find_historical_outliers_idx(self, th_type='conf_interval', percent_th=.25, std_th=1.96, to_csv=True):
+    def find_historical_outliers_idx(self, th_type='std_res', percent_th=.25, std_th=1.96):
         """
         Finds outliers in historical data. Outliers are those whose model estimate
         falls outside a predetermined threshold. The threshold type can be defined as 
@@ -227,9 +232,8 @@ class TimeSeriesUnivariateModel(object):
         
         Parameters
         ----------
-        th_type: str, default "conf_interval"
-            Defined the thresholding mechanism. If 'conf_interval', an outlier is a residual
-            point outside of the 95% CI. If 'std_res', an outlier is defined as a constant multiple
+        th_type: str, default "std_res"
+            Defined the thresholding mechanism. If 'std_res', an outlier is defined as a constant multiple
             of the residual's standard deviation. If 'percent_raw', an outlier is defined as
             a percent of the raw time signal's value.
         percent_th: float, default 0.25
@@ -243,15 +247,24 @@ class TimeSeriesUnivariateModel(object):
         Returns
         -------
         None
-        """
-        if th_type=='conf_interval':
-            self._outliers_index = self._data.loc[(self._data['res'] > self.res_stats['upperci']) | (self._data['res'] < self.res_stats['lowerci'])].index
-        elif th_type=='std_res':
-            self._outliers_index = self._data.loc[(self._data['res'] > std_th*self.res_stats['std']) | (self._data['res'] < std_th*self.res_stats['std'])].index
+        """        
+        if th_type=='std_res':
+            if self._window_alert_n is not None:
+                self.data['res_outlier_ub'] = self.data['res'].dropna().rolling(self._window_alert_n+1)\
+                .apply(lambda x: x[:-1].mean()+std_th*x[:-1].std())
+                self.data['res_outlier_lb'] = self.data['res'].dropna().rolling(self._window_alert_n+1)\
+                .apply(lambda x: x[:-1].mean()-std_th*x[:-1].std())
+            else:
+                self.data['res_outlier_ub'] = self.res_stats['mu'] + std_th*self.res_stats['std']
+                self.data['res_outlier_lb'] = self.res_stats['mu'] - std_th*self.res_stats['std']
         elif th_type=='percent_raw':
-            self._outliers_index = self._data.loc[self._data['res'].apply(np.absolute) > self._data['y']*percent_th].index
+            self.data['res_outlier_ub'] = self.data['y'] + self.data['y']*percent_th
+            self.data['res_outlier_lb'] = -1.0*self.data['y']*percent_th
+            
+        self._outliers_index = self.data.loc[(self.data['res'] > self.data['res_outlier_ub']) 
+        | (self.data['res'] < self.data['res_outlier_lb'])].index
         
-        return self._outliers_index
+        return None
         
         
     @abstractmethod
@@ -259,8 +272,8 @@ class TimeSeriesUnivariateModel(object):
         """
         Method for fitting the model to the time series data. When implementing this method, it
         is expected that the method will at a minimum perform the following actions:
-        1. Assign the time series data to self._data['y'].
-        2. Assign model estimates to self._data['y_hat'].
+        1. Assign the time series data to self.data['y'].
+        2. Assign model estimates to self.data['y_hat'].
         3. Runs the TimeSeriesUnivariateModel.residual_analysis() method.
         
         See Also
@@ -268,6 +281,7 @@ class TimeSeriesUnivariateModel(object):
         TimeSeriesNaiveModel.fit() : Shows a simple implementation of a naive model's fit function.
         """
         pass
+        
     
 class TimeSeriesNaiveModel(TimeSeriesUnivariateModel):
     """
@@ -275,12 +289,15 @@ class TimeSeriesNaiveModel(TimeSeriesUnivariateModel):
     is defined as the previous value: y_hat(t) = y(t-1).
     """
     
-    def __init__(self, output_dir=None, write_output=True):
+    def __init__(self, window_alert_n=None, output_dir=None, write_output=True):
         """
         Class constructor
         
         Parameters
         ----------
+        window_alert_n: int, default None
+            Number of data points to use for training stastical profiling alert model.
+            If None, uses entire signal.
         output_dir: str or Path
             Directory for output data and plots
         write_output: bool, default True
@@ -290,7 +307,7 @@ class TimeSeriesNaiveModel(TimeSeriesUnivariateModel):
         -------
         None
         """
-        super().__init__(output_dir, write_output)
+        super().__init__(window_alert_n=window_alert_n, output_dir=output_dir, write_output=write_output)
         
     def fit(self, ts:pd.Series):
         """
@@ -307,9 +324,9 @@ class TimeSeriesNaiveModel(TimeSeriesUnivariateModel):
         """
         logging.info('Fitting the naive time series model')
         #Assign raw time series value
-        self._data['y'] = ts
+        self.data['y'] = ts
         #Calc yhat
-        self._data['y_hat'] = self._data['y'].shift(1)
+        self.data['y_hat'] = self.data['y'].shift(1)
         #Calculate basic residual signal stats
         self.residual_analysis()
         
@@ -324,12 +341,15 @@ class StatsModelTSAModel(TimeSeriesUnivariateModel):
     https://www.statsmodels.org/dev/tsa.html#module-statsmodels.tsa
     """
     
-    def __init__(self, output_dir=None, write_output=True, tsa_model=tsa.SimpleExpSmoothing, tsa_kwargs={'initialization_method':"estimated"}):
+    def __init__(self, window_alert_n=None, output_dir=None, write_output=True, tsa_model=tsa.SimpleExpSmoothing, tsa_kwargs={'initialization_method':"estimated"}):
         """
         Class constructor
         
         Parameters
         ----------
+        window_alert_n: int, default None
+            Number of data points to use for training stastical profiling alert model.
+            If None, uses entire signal.
         output_dir: str or Path
             Directory for output data and plots
         write_output: bool, default True
@@ -344,7 +364,7 @@ class StatsModelTSAModel(TimeSeriesUnivariateModel):
         -------
         None
         """
-        super().__init__(output_dir, write_output)
+        super().__init__(window_alert_n=window_alert_n, output_dir=output_dir, write_output=write_output)
         if isinstance(tsa_model, str):
            self._tsa_model = getattr(tsa, tsa_model)
         else:
@@ -369,15 +389,15 @@ class StatsModelTSAModel(TimeSeriesUnivariateModel):
         """
         logging.info('Fitting a statmodels tsa library model')
         #Assign raw time series value
-        self._data['y'] = ts
+        self.data['y'] = ts
         #Assign the tsa fit kwargs
         self._tsa_fit_kwargs = tsa_fit_kwargs
         
         #Calc yhat
         if self._tsa_fit_kwargs != None:
-            self._data['y_hat'] = self._tsa_model(self._data['y'], **self._tsa_kwargs).fit(**self._tsa_fit_kwargs).fittedvalues
+            self.data['y_hat'] = self._tsa_model(self.data['y'], **self._tsa_kwargs).fit(**self._tsa_fit_kwargs).fittedvalues
         else:
-            self._data['y_hat'] = self._tsa_model(self._data['y'], **self._tsa_kwargs).fit().fittedvalues
+            self.data['y_hat'] = self._tsa_model(self.data['y'], **self._tsa_kwargs).fit().fittedvalues
         #Calculate basic residual signal stats
         self.residual_analysis()
         
@@ -394,12 +414,15 @@ class TimeSeriesUnivariateRollingWindow(TimeSeriesUnivariateModel):
     
     """
     
-    def __init__(self, output_dir=None, write_output=True):
+    def __init__(self, window_alert_n=None, output_dir=None, write_output=True):
         """
         Class constructor
         
         Parameters
         ----------
+        window_alert_n: int, default None
+            Number of data points to use for training stastical profiling alert model.
+            If None, uses entire signal.
         output_dir: str or Path
             Directory for output data and plots
         write_output: bool, default True
@@ -409,7 +432,7 @@ class TimeSeriesUnivariateRollingWindow(TimeSeriesUnivariateModel):
         -------
         None
         """
-        super().__init__(output_dir, write_output)
+        super().__init__(window_alert_n=window_alert_n,output_dir=output_dir, write_output=write_output)
         
     def fit(self, ts:pd.Series, pandas_rolling_kwargs={'window':3,'center': False}):
         """
@@ -428,9 +451,9 @@ class TimeSeriesUnivariateRollingWindow(TimeSeriesUnivariateModel):
         """
         logging.info('Fitting a rolling average mean window')
         #Assign raw time series value
-        self._data['y'] = ts
+        self.data['y'] = ts
         #Calc yhat
-        self._data['y_hat'] = self._data['y'].rolling(**pandas_rolling_kwargs).mean().shift(1)
+        self.data['y_hat'] = self.data['y'].rolling(**pandas_rolling_kwargs).mean().shift(1)
         #Calculate basic residual signal stats
         self.residual_analysis()
         
