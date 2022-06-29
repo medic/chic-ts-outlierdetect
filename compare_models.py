@@ -42,12 +42,20 @@ def compare_ts_univariate_outlier(config_file):
         model_class = experiment['model_class']
         model_kwargs = experiment['model_kwargs']
         fit_kwargs = experiment['fit_kwargs']
-        if model_kwargs != None:
-            model = getattr(ts_univariate_outlier, model_class)(output_dir=output_dir,write_output=write_output,**model_kwargs)
+        train_periods = experiment['train_periods']
+        if model_kwargs is not None:
+            if fit_kwargs is not None:
+                model = getattr(ts_univariate_outlier, model_class)(train_periods=train_periods,output_dir=output_dir,write_output=write_output,model_kwargs=model_kwargs, fit_kwargs=fit_kwargs)
+            else:
+                model = getattr(ts_univariate_outlier, model_class)(train_periods=train_periods,output_dir=output_dir,write_output=write_output,model_kwargs=model_kwargs)
+            
         else:
-            model = getattr(ts_univariate_outlier, model_class)(output_dir=output_dir,write_output=write_output)
-        if fit_kwargs != None:
-            model.fit(time_series_data, **fit_kwargs)
+            if fit_kwargs is not None:
+                model = getattr(ts_univariate_outlier, model_class)(train_periods=train_periods,output_dir=output_dir,write_output=write_output,fit_kwargs=fit_kwargs)
+            else:
+                model = getattr(ts_univariate_outlier, model_class)(train_periods=train_periods,output_dir=output_dir,write_output=write_output)
+        if train_periods is not None:
+            model.fit_rolling_window(time_series_data)
         else:
             model.fit(time_series_data)
         model.plot_model_results()

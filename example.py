@@ -11,7 +11,7 @@ if __name__ == '__main__':
     
     #Sample Experiment #1 - Naive Model
     #Define the parameters for teh test run
-    output_dir = 'example_naive'
+    output_dir = 'example'
     #Instantiate the model class
     model = ts_univariate_outlier.TimeSeriesNaiveModel(output_dir=output_dir)
     #Fit the model to the time series

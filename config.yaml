@@ -3,23 +3,18 @@ write_output: True
 experiments:
     - name: "example_naive"
       model_class: TimeSeriesNaiveModel
+      train_periods: 16
       model_kwargs:
-          window_alert_n : 12
       fit_kwargs:
     - name: "example_exponentialsmoothing"
-      model_class: StatsModelTSAModel
+      model_class: TimeSeriesExpSmoothingModel
+      train_periods: 16
       model_kwargs:
-          window_alert_n : 12
-          tsa_model: SimpleExpSmoothing
-          tsa_kwargs:
-              initialization_method : estimated
+          initialization_method : estimated
       fit_kwargs:
-          tsa_fit_kwargs:
-              smoothing_level : 0.5
+          smoothing_level : 0.5
     - name: "example_rollingaverage"
-      model_class: TimeSeriesUnivariateRollingWindow
+      model_class: TimeSeriesMean
+      train_periods: 16
       model_kwargs:
-          window_alert_n : 12
       fit_kwargs:
-          pandas_rolling_kwargs:
-              window : 6
