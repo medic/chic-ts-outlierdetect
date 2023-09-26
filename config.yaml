@@ -1,4 +1,4 @@
-data_file: "example.csv"
+data_file: "data/df_completed_tasks.csv"
 write_output: True
 experiments:
     - name: "example_naive"
